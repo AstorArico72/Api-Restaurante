@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Api_Restaurante.Modelos;
 
 public class Orden {

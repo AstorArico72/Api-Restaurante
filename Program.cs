@@ -1,9 +1,42 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("http://127.0.0.1:5179", "http://192.168.1.150:5179");
+builder.Services.AddMvc ();
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddDbContext<ContextoDb> (
+    options => options.UseMySql (
+            builder.Configuration ["ConnectionStrings:DefaultConnection"], new MariaDbServerVersion (new Version (10, 4, 21))
+    )
+);
+builder.Services.AddControllers ();
+
+builder.Services.AddAuthentication (JwtBearerDefaults.AuthenticationScheme).AddJwtBearer (options => {
+    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidIssuer = builder.Configuration ["TokenAuthentication:Issuer"],
+        ValidAudience = builder.Configuration ["TokenAuthentication:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey (System.Text.Encoding.UTF8.GetBytes (builder.Configuration ["TokenAuthentication:SecretKey"]))
+    };
+});
+
+builder.Services.AddAuthorization (options => {
+    options.AddPolicy ("Cliente", policy => {
+        policy.RequireRole ("Cliente");
+    });
+    options.AddPolicy ("Cocina", policy => {
+        policy.RequireRole ("Cocina");
+    });
+});
 
 var app = builder.Build();
 
@@ -14,31 +47,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}"
+);
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
-
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+app.Run ();
