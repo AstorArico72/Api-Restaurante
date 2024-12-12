@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://127.0.0.1:5179", "http://192.168.1.150:5179");
@@ -36,6 +37,11 @@ builder.Services.AddAuthorization (options => {
     options.AddPolicy ("Cocina", policy => {
         policy.RequireRole ("Cocina");
     });
+    options.AddPolicy ("Restaurante", policy => {
+        policy.RequireAssertion (context => (
+            context.User.HasClaim (claim => claim.Type == ClaimTypes.Role && (claim.Value == "Cocina" || claim.Value == "Cliente"))
+        ));
+    });
 });
 
 var app = builder.Build();
@@ -51,5 +57,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}"
 );
+
+app.UseStaticFiles ();
 
 app.Run ();

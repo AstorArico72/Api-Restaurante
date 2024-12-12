@@ -7,7 +7,7 @@ namespace Api_Restaurante.Api;
 
 [ApiController]
 [Route("/Api/Articulos")]
-[Authorize(policy:"Cliente")]
+[Authorize]
 public class ArticulosController : ControllerBase {
     private ContextoDb Contexto;
     private readonly IConfiguration Config;
@@ -18,13 +18,16 @@ public class ArticulosController : ControllerBase {
     }
 
     [HttpGet("Menu")]
+    [Authorize(policy:"Cliente")]
     public IActionResult VerMenu () {
         return Ok (Contexto.Artículos.ToList ());
     }
 
+
+    [Authorize(policy:"Restaurante")]
     [HttpGet("Detalles/{id}")]
-    public IActionResult DetallesArticulo (int id) {
-        Artículo? ArticuloEncontrado = Contexto.Artículos.Find (id);
+    public async Task<IActionResult> DetallesArticulo (int id) {
+        Artículo? ArticuloEncontrado = await Contexto.Artículos.FindAsync (id);
         if (ArticuloEncontrado == null) {
             return NotFound ("No existe un artículo con ése ID.");
         } else {

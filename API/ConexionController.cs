@@ -46,23 +46,39 @@ public class ConexionController : ControllerBase {
         }
     }
 
+    [HttpGet("ConseguirIdMesa")]
+    [Authorize(policy:"Cliente")]
+    public IActionResult ConseguirIdMesa () {
+        Claim? UsuarioExistente = User.Claims.FirstOrDefault (claim => claim.Type == "IdCliente", null);
+        if (UsuarioExistente == null) {
+            return Unauthorized ("No tienes un ID de cliente.");
+        } else {
+            return Ok (UsuarioExistente.Value);
+        }
+    }
+
     [HttpGet("ConexionCocina")]
     public IActionResult HabilitarCocina () {
-        var Llave = new SymmetricSecurityKey (System.Text.Encoding.UTF8.GetBytes(Config["TokenAuthentication:SecretKey"]));
-        var Credenciales = new SigningCredentials (Llave, SecurityAlgorithms.HmacSha256);
-        List <Claim> ClaimList = new List<Claim> {
-            new Claim (ClaimTypes.Role, "Cocina")
-        };
+        Claim? UsuarioExistente = User.Claims.FirstOrDefault (claim => claim.Type == ClaimTypes.Role, null);
+        if (UsuarioExistente == null) {
+            var Llave = new SymmetricSecurityKey (System.Text.Encoding.UTF8.GetBytes(Config["TokenAuthentication:SecretKey"]));
+            var Credenciales = new SigningCredentials (Llave, SecurityAlgorithms.HmacSha256);
+            List <Claim> ClaimList = new List<Claim> {
+                new Claim (ClaimTypes.Role, "Cocina")
+            };
 
-        var Token = new JwtSecurityToken (
-            issuer: Config["TokenAuthentication:Issuer"],
-            audience: Config["TokenAuthentication:Audience"],
-            claims: ClaimList,
-            expires: DateTime.Now.AddHours (24),
-            signingCredentials: Credenciales
-        );
+            var Token = new JwtSecurityToken (
+                issuer: Config["TokenAuthentication:Issuer"],
+                audience: Config["TokenAuthentication:Audience"],
+                claims: ClaimList,
+                expires: DateTime.Now.AddHours (24),
+                signingCredentials: Credenciales
+            );
 
-        return Ok (new JwtSecurityTokenHandler ().WriteToken (Token));
+            return Ok (new JwtSecurityTokenHandler ().WriteToken (Token));
+        } else {
+            return NoContent ();
+        }
     }
 
     private string GenerarIdCliente () {

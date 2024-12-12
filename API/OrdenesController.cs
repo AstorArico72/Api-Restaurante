@@ -23,7 +23,14 @@ public class OrdenesController : ControllerBase {
     [HttpGet("Todas")]
     [Authorize(policy:"Cocina")]
     public IActionResult LeerOrdenes () {
-        return Ok (Contexto.Ordenes.ToList ());
+        List <Orden> ordenes = new List<Orden>();
+        List<Orden> lista = Contexto.Ordenes.ToList ();
+        foreach (Orden item in lista) {
+            if (Contexto.Ordenes.Entry (item).State != EntityState.Deleted) {
+                ordenes.Add (item);
+            }
+        }
+        return Ok (ordenes);
     }
 
     [HttpPost("Nueva")]
@@ -32,9 +39,10 @@ public class OrdenesController : ControllerBase {
         List<FilaOrden>? FilasOrden = JsonConvert.DeserializeObject <List<FilaOrden>>(filas);
         Orden nuevaOrden = new Orden ();
         nuevaOrden.Cliente = int.Parse (User.Claims.FirstOrDefault (claim => claim.Type == "IdCliente").Value);
-        await Contexto.Ordenes.AddAsync (nuevaOrden);
         if (ModelState.IsValid) {
-            int UltimoId = await Contexto.Ordenes.MaxAsync (item => item.ID);
+            await Contexto.Ordenes.AddAsync (nuevaOrden);
+            await Contexto.SaveChangesAsync ();
+            int UltimoId = Contexto.Ordenes.OrderBy (item => item.ID).Last ().ID;
             if (FilasOrden.Count () > 0 && FilasOrden != null) {
                 foreach (var fila in FilasOrden) {
                     fila.Orden = UltimoId;
@@ -43,14 +51,13 @@ public class OrdenesController : ControllerBase {
             } else {
                 return BadRequest ("No hay artículos en la orden.");
             }
-            await Contexto.SaveChangesAsync ();
             return Created ();
         } else {
             return BadRequest (ModelState);
         }
     }
 
-    [HttpDelete("Entregar")]
+    [HttpDelete("Entregar/{id}")]
     [Authorize(policy:"Cocina")]
     public async Task <IActionResult> EntregarOrden (int id) {
         //Éste método hace un borrado lógico.
@@ -60,11 +67,11 @@ public class OrdenesController : ControllerBase {
         } else {
             Contexto.Ordenes.Entry (OrdenAEntregar).State = EntityState.Deleted;
             await Contexto.SaveChangesAsync ();
-            return Ok ($"Orden #${id} entregada.");
+            return Ok ($"Orden #{id} entregada.");
         }
     }
 
-    [HttpDelete("Descartar")]
+    [HttpDelete("Descartar/{id}")]
     [Authorize(policy:"Cocina")]
     public async Task <IActionResult> DescartarOrden (int id) {
         //Éste método hace un borrado duro.
@@ -75,6 +82,19 @@ public class OrdenesController : ControllerBase {
             Contexto.Ordenes.Remove (OrdenAEntregar);
             await Contexto.SaveChangesAsync ();
             return Ok ("Orden borrada.");
+        }
+    }
+
+    [HttpGet("Detalles/{id}")]
+    [Authorize(policy:"Cocina")]
+    public IActionResult LeerFilas (int id) {
+        Orden? OrdenSeleccionada = Contexto.Ordenes.Find (id);
+
+        if (OrdenSeleccionada == null) {
+            return NotFound ("Ésa orden no existe.");
+        } else {
+            List<FilaOrden> filas = Contexto.Filas_Orden.Where (fila => fila.Orden == id).ToList ();
+            return Ok (filas);
         }
     }
 }
